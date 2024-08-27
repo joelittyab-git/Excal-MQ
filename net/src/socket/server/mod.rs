@@ -227,15 +227,15 @@ impl ServerSocket{
      
           // Matching the type passed for parsing data for a specific encoding
           return match data_type {
-          Type::Bytes => Ok(SocketData::new(addr, Data::Bytes(buf))),
-          Type::Utf16 => {
-               let utf16_string = Data::to_utf16_string(&buf, Endian::Big).await;
-               Ok(SocketData::new(addr, Data::Utf16(utf16_string)))
-          },
-          Type::Utf8 => {
-               let utf8_string = String::from_utf8_lossy(&buf).to_string();
-               Ok(SocketData::new(addr, Data::Utf8(utf8_string)))
-          }
+               Type::Bytes => Ok(SocketData::new(addr, Data::Bytes(buf))),
+               Type::Utf16 => {
+                    let utf16_string = Data::to_utf16_string(&buf, Endian::Big).await;
+                    Ok(SocketData::new(addr, Data::Utf16(utf16_string)))
+               },
+               Type::Utf8 => {
+                    let utf8_string = String::from_utf8_lossy(&buf).to_string();
+                    Ok(SocketData::new(addr, Data::Utf8(utf8_string)))
+               }
           }
      }
  
