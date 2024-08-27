@@ -1172,7 +1172,6 @@ pub struct MTPManagerActions {
 /// In this example, an `MTPMessage` instance is created with specific content and metadata,
 /// and the `process_message` function demonstrates how to access and handle the message's
 /// various attributes.
-
 pub struct MTPMessage {
     content_type:ContentType,
     priority:MessagePriority,

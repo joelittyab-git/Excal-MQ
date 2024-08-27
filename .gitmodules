@@ -1,0 +1,3 @@
+[submodule "security-gateway"]
+	path = security-gateway
+	url = https://github.com/joelittyab-git/security-gateway.git
