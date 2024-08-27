@@ -1079,9 +1079,104 @@ pub struct MTPManagerActions {
     actions: Vec<MTPManagerAction>,
 }
 
-/// `MTPMessage` represents the actual message content in different formats supported by the protocol.
-pub enum MTPMessage {
-    JSON(String),
-    XML(String),
-    STRING(String),
+/// `MTPMessage` represents the actual content of a message within the protocol.
+/// It encapsulates the message data along with metadata that describes its type,
+/// priority, category, and how it should be published.
+///
+/// This struct is used to define the core content of a message and includes various fields
+/// to support different formats and handling requirements as specified by the protocol.
+///
+/// ## Fields
+///
+/// ### `content_type`
+///
+/// Specifies the format or type of the message content. This field determines how the message
+/// content is structured or encoded, such as JSON or XML.
+///
+/// - **Type**: `ContentType`
+/// - **Description**: Indicates the content format of the message, guiding how the message should
+///   be interpreted or processed.
+///
+/// ### `priority`
+///
+/// Defines the priority level of the message, indicating its importance or urgency. This field
+/// helps in managing message handling and processing based on the message's priority.
+///
+/// - **Type**: `MessagePriority`
+/// - **Description**: Specifies the priority of the message, which can influence how and when
+///   the message is handled by the system.
+///
+/// ### `category`
+///
+/// Specifies the category or type of the message, which helps in classifying the message based
+/// on its purpose or content. This field provides context for the message's role within the system.
+///
+/// - **Type**: `MessageCategory`
+/// - **Description**: Indicates the category of the message, providing information about its
+///   functional role or content type.
+///
+/// ### `publish`
+///
+/// Defines how the message should be published or disseminated within the system. This field
+/// specifies the target or scope of the message distribution, such as to all recipients, a specific
+/// recipient, or a group of recipients.
+///
+/// - **Type**: `MessagePublish`
+/// - **Description**: Determines the publishing method for the message, guiding its delivery
+///   to the intended recipients.
+///
+/// ### `message`
+///
+/// Contains the actual content of the message as a string. This field holds the data or text
+/// that constitutes the main part of the message.
+///
+/// - **Type**: `String`
+/// - **Description**: Stores the content of the message in string format, representing the
+///   core data to be communicated.
+///
+/// ## Example
+///
+/// Here is an example of how `MTPMessage` might be used:
+///
+/// ```rust
+/// pub struct MTPMessage {
+///     content_type: ContentType,
+///     priority: MessagePriority,
+///     category: MessageCategory,
+///     publish: MessagePublish,
+///     message: String,
+/// }
+///
+/// fn process_message(mtp_message: MTPMessage) {
+///     // Access and process the message content and metadata
+///     println!("Message Content: {}", mtp_message.message);
+///     println!("Content Type: {:?}", mtp_message.content_type);
+///     println!("Priority: {:?}", mtp_message.priority);
+///     println!("Category: {:?}", mtp_message.category);
+///     println!("Publish Method: {:?}", mtp_message.publish);
+/// }
+///
+/// // Create an example message
+/// let example_message = MTPMessage {
+///     content_type: ContentType::JSON,
+///     priority: MessagePriority::High,
+///     category: MessageCategory::COMMAND,
+///     publish: MessagePublish::ALL,
+///     message: String::from("This is a command message"),
+/// };
+///
+/// // Process the example message
+/// process_message(example_message);
+/// ```
+///
+/// In this example, an `MTPMessage` instance is created with specific content and metadata,
+/// and the `process_message` function demonstrates how to access and handle the message's
+/// various attributes.
+
+pub struct MTPMessage {
+    content_type:ContentType,
+    priority:MessagePriority,
+    category:MessageCategory,
+    publish:MessagePublish,
+    message:String
 }
