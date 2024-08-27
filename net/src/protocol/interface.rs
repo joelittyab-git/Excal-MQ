@@ -559,7 +559,7 @@ pub struct MTPStorage {
 }
 
 /// `StorageCell` represents an individual storage unit within [`MTPStorage`].
-/// Containts a key value pair for storing local data and aching information
+/// Containts a key value pair for storing local data and caching information
 pub struct StorageCell {
     key: String,
     value: String,
