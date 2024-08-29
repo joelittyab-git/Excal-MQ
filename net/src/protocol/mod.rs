@@ -63,7 +63,7 @@ pub struct MTPResponse {
      storage: MTPStorage,
  }
  
- impl MTPResponse {
+impl MTPResponse {
      /// Constructs a new `MTPResponse` instance with the provided status code, headers, and storage.
      ///
      /// # Arguments
@@ -90,7 +90,7 @@ pub struct MTPResponse {
      }
  }
  
- impl MessageTransferProtocolResponse for MTPResponse {
+impl MessageTransferProtocolResponse for MTPResponse {
      /// Retrieves the status code from the `MTPResponse`.
      ///
      /// # Returns
@@ -126,7 +126,7 @@ pub struct MTPResponse {
 /// `MTPManagerActions` represents a collection of management actions that can be performed.
 pub struct MTPManagerActions {
      actions: Vec<MTPManagerAction>,
- }
+}
  
  /// `MTPMessage` represents the actual content of a message within the protocol.
  /// It encapsulates the message data along with metadata that describes its type,
