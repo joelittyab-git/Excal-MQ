@@ -50,36 +50,77 @@ use interface::{
      MessageTransferProtocolResponse
 };
 
-struct MTPResponse{
-     status_code:MTPStatusCode,
-     headers:MTPHeaders,
-     storage:MTPStorage
-}
-
-impl MTPResponse{
-     fn contstruct(status:MTPStatusCode, headers:MTPHeaders, storage:MTPStorage)->Self{
-          Self{
-               status_code:status,
-               headers,
-               storage
-          }
+/// [`MTPResponse`] represents the response returned from operations performed in the message transfer protocol.
+/// It includes a status code, headers, and storage information that describe the result of the protocol operation.
+pub struct MTPResponse {
+     /// The status code indicating the outcome of the protocol operation.
+     status_code: MTPStatusCode,
+ 
+     /// The headers associated with the response, containing metadata and other relevant information.
+     headers: MTPHeaders,
+ 
+     /// The storage associated with the response, which may include additional data or resources.
+     storage: MTPStorage,
+ }
+ 
+ impl MTPResponse {
+     /// Constructs a new `MTPResponse` instance with the provided status code, headers, and storage.
+     ///
+     /// # Arguments
+     ///
+     /// * `status` - The status code indicating the result of the operation.
+     /// * `headers` - The headers associated with the response.
+     /// * `storage` - The storage data associated with the response.
+     ///
+     /// # Returns
+     ///
+     /// A new instance of `MTPResponse`.
+     ///
+     /// # Example
+     ///
+     /// ```
+     /// let response = MTPResponse::construct(status_code, headers, storage);
+     /// ```
+     fn construct(status: MTPStatusCode, headers: MTPHeaders, storage: MTPStorage) -> Self {
+         Self {
+             status_code: status,
+             headers,
+             storage,
+         }
      }
-}
-
-impl MessageTransferProtocolResponse for MTPResponse{
+ }
+ 
+ impl MessageTransferProtocolResponse for MTPResponse {
+     /// Retrieves the status code from the `MTPResponse`.
+     ///
+     /// # Returns
+     ///
+     /// The status code associated with the response.
      fn get_status_code(&self) -> MTPStatusCode {
-          self.status_code.clone()
+         self.status_code.clone()
      }
-
+ 
+     /// Retrieves the headers from the `MTPResponse`.
+     ///
+     /// # Returns
+     ///
+     /// An `Option` containing the headers associated with the response.
+     /// Returns `None` if there are no headers.
      fn get_headers(&self) -> Option<MTPHeaders> {
-          Some(self.headers.clone())
+         Some(self.headers.clone())
      }
-
+ 
+     /// Retrieves the storage data from the `MTPResponse`.
+     ///
+     /// # Returns
+     ///
+     /// An `Option` containing the storage data associated with the response.
+     /// Returns `None` if there is no storage data.
      fn get_storage(&self) -> Option<MTPStorage> {
-          Some(self.storage.clone())
+         Some(self.storage.clone())
      }
-}
-
+ }
+ 
 
 
 /// `MTPManagerActions` represents a collection of management actions that can be performed.
