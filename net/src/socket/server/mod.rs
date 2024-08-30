@@ -44,7 +44,8 @@ pub mod error;
 ///
 pub mod data;
 
-use async_std::{io::ReadExt, net::{TcpListener, TcpStream}};
+use tokio::io::AsyncReadExt;
+use tokio::net::{TcpListener, TcpStream};
 use std::net::{Ipv4Addr, SocketAddr};
 
 use error::ServerSocketError;
