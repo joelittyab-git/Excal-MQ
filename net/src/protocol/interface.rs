@@ -1,12 +1,15 @@
-use std::{fmt::Error, net::SocketAddr};
+use std::net::SocketAddr;
 use std::time::SystemTime;
 
 use super::{
      MTPManagerActions,
      MTPHeaders,
      MTPStorage,
-     MTPMessage
+     MTPMessage,
+
+     error::ProtocolError
 };
+
 
 /// [`MessageTransferProtocol`] defines the main interface for a message transfer protocol system.
 /// It includes methods for subscribing to queues, unsubscribing, publishing messages,
@@ -24,13 +27,13 @@ pub trait MessageTransferProtocol {
     ///
     /// # Returns
     /// A result containing a response or an error.
-    fn subscribe(&self, queue: String) -> Result<Self::Response, Error>;
+    fn subscribe(&self, queue: String) -> Result<Self::Response, ProtocolError>;
 
     /// Unsubscribes from the queue with the passed identifier.
     ///
     /// # Returns
     /// A result containing a response or an error.
-    fn unsubscribe(&self, queue: String) -> Result<Self::Response, Error>;
+    fn unsubscribe(&self, queue: String) -> Result<Self::Response, ProtocolError>;
 
     /// Publishes a message to the queue.
     ///
@@ -39,19 +42,19 @@ pub trait MessageTransferProtocol {
     ///
     /// # Returns
     /// A result containing a response or an error.
-    fn publish(&self, message: Self::Message) -> Result<Self::Response, Error>;
+    fn publish(&self, message: Self::Message) -> Result<Self::Response, ProtocolError>;
 
     /// Pulls a message from the queue.
     ///
     /// # Returns
     /// A result containing a response or an error.
-    fn pull(&self) -> Result<Self::Response, Error>;
+    fn pull(&self) -> Result<Self::Response, ProtocolError>;
 
     /// Pings the server to check status
     ///
     /// # Returns
     /// A result containing a response or an error.
-    fn ping(&self) -> Result<Self::Response, Error>;
+    fn ping(&self) -> Result<Self::Response, ProtocolError>;
 
     /// Manages the protocol actions.
     ///
@@ -60,7 +63,7 @@ pub trait MessageTransferProtocol {
     ///
     /// # Returns
     /// A result containing a response or an error.
-    fn manage(&self, actions: MTPManagerActions) -> Result<Self::Response, Error>;
+    fn manage(&self, actions: MTPManagerActions) -> Result<Self::Response, ProtocolError>;
 }
 
 /// [`MessageTransferProtocolResponse`] represents the response returned by methods of the [`MessageTransferProtocol`] trait.
@@ -283,7 +286,7 @@ pub enum MTPRequestType {
 /// `MTPStatusCode` represents the various status codes that can be returned in a protocol response.
 pub enum MTPStatusCode {
     Success0,
-    Error1(Error)
+    Error1(ProtocolError)
 }
 
 /// `MTPHeaderUnit` represents individual units within the protocol's header.
@@ -389,7 +392,7 @@ pub enum MTPHeaderUnit {
      /// - Content format defined in the type [`ContentType`]
      Message {
           id: String,
-          timestamp: SystemTime,
+          timestamp: Option<SystemTime>,
           priority: MessagePriority,
           category: MessageCategory,
           content_type: ContentType,
@@ -402,6 +405,10 @@ pub enum MTPHeaderUnit {
           queue: String,
           to: MessagePublish,
      },
+
+     QueueCreation{
+          
+     }
 }
 
 /// `MTPAuth` represents different authentication methods that can be used within the protocol's header.
@@ -647,19 +654,47 @@ pub enum AuthSchemes {
 /// based on the `MTPManagerAction` variant, performing appropriate operations for each action.
 pub enum MTPManagerAction {
      /// Rename an existing resource specifically the queue in the which the moderator is operating
-     Rename,
+     Rename(String),
 
      /// Authorize user requesting persmissions to the queue
-     Authorize,       // On user invites (private)
+     Authorize(String),       // On user invites (private)
 
      /// Reject user requesting permissions to the queue
      Reject,          // Access permission
 
      /// Dispose an exising client from the queue
-     Dispose,         // Dispose of existing clients
+     Dispose(String),         // Dispose of existing clients
 
      /// Modify the roles/permissions of existing client
-     AccessorModify,  // Change the permission of the access of the queue
+     AccessorModify(QueueAccess),  // Change the permission of the access of the queue
+}
+
+/// [`QueueAccess`] defines an access of a client to a particular queue.
+/// 
+/// ## Variants
+///
+/// ### `Public`
+///
+/// A queue to be public. Anyone with the queue identifier can join the queue to receive messages
+/// This is the default queue accessor.
+///
+/// - **Usage**: A public queue to publish messages to all who join the queue wihtout needing to wait for authorization
+///
+/// /// ### `Private`
+///
+/// A queue to be private can only be joined if the admin authorizes the request.
+/// A client waits for admin aprroval and then joins the queue to receive published messages
+///
+/// - **Usage**: A private queue to restrict information acccess
+///
+/// ### `Protected`
+///
+/// A queue to be protected.
+///
+pub enum QueueAccess {
+    Public,
+    Private,
+    Protected
 }
 
 /// `MessagePriority` defines the priority levels of messages within the protocol.
@@ -901,6 +936,16 @@ pub enum ContentType {
     XML,
 }
 
+/// [`QueueRoles`] for the queue
+/// Roles that are defined for each client in the queue
+pub enum QueueRoles {
+    Moderator,
+    Manager,
+    Producer,
+    Consumer,
+    Couple
+}
+
 
 
 /// `MessagePublish` defines the different ways a message can be published within the protocol.
@@ -1059,3 +1104,28 @@ impl Clone for MessagePublish{
          }
      }
  }
+
+/// Clone implementation for [MTPRequestType]
+impl Clone for MTPRequestType{
+     fn clone(&self) -> Self {
+          match self {
+               Self::Subscribe => Self::Subscribe,
+               Self::Unsubscribe => Self::Unsubscribe,
+               Self::Publish => Self::Publish,
+               Self::Pull => Self::Pull,
+               Self::Ping => Self::Ping,
+               Self::Manage => Self::Manage,
+          }
+     }
+}
+
+/// Clone implementation for [QueueAccess]
+impl Clone for QueueAccess{
+    fn clone(&self) -> Self {
+        match self {
+            Self::Public => Self::Public,
+            Self::Private => Self::Private,
+            Self::Protected => Self::Protected,
+        }
+    }
+}
