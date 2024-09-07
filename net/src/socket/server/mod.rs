@@ -102,7 +102,7 @@ impl ServerSocket{
      /// #[tokio::main]
      /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
      ///     let port: u16 = 8080;
-     ///     match ServerSocket::new(port).await {
+     ///     match ServerSocket::bind(port).await {
      ///         Ok(server) => {
      ///             println!("Server started on port {}", server.port);
      ///         }
@@ -131,9 +131,9 @@ impl ServerSocket{
      /// - [`ServerSocketError`] for details on the possible errors.
      /// - [`TcpListener`] for information on TCP listener behavior and usage.
      /// ```rust
-     /// pub async fn new(port: u16) -> Result<Self, ServerSocketError> {
+     /// pub async fn bind(port: u16) -> Result<Self, ServerSocketError> {
      ///     //localhost
-     ///     let localhost = Ipv4Addr::new(127, 0, 0, 1);
+     ///     let localhost = Ipv4Addr::bind(127, 0, 0, 1);
      ///     let tcp_listener = TcpListener::bind((localhost, port)).await?; // ServerSocketError::IoError{source:<Error>}
      ///
      ///     Ok(ServerSocket {
@@ -143,7 +143,7 @@ impl ServerSocket{
      ///     })
      /// }
      /// ```
-     pub async fn new(port: u16) -> Result<Self, ServerSocketError> {
+     pub async fn bind(port: u16) -> Result<Self, ServerSocketError> {
           //localhost
           let localhost = Ipv4Addr::new(127, 0, 0, 1);
           let tcp_listener = TcpListener::bind((localhost, port)).await?; // ServerSocketError::IoError{source:<Error>}
