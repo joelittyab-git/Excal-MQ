@@ -34,20 +34,52 @@
 /// message processing scenarios.
 pub mod interface;
 
+pub mod data;
 
+
+/// The `error` module defines the error types used in the Message Transfer Protocol (MTP).
+///
+/// This module includes:
+///
+/// - `ProtocolError`: An enum that represents various client and server-side errors, each associated with
+///   a specific numeric code and description. This enum is used to identify and handle errors in the protocol.
+/// - `Error`: A struct that encapsulates an error message, which is used by `ProtocolError` to provide detailed
+///   information about the error condition.
+///
+/// ## Example
+///
+/// ```rust
+/// use crate::error::{ProtocolError, Error};
+///
+/// // Creating an error for a bad request
+/// let error = ProtocolError::BadRequest100(Error { message: "Invalid request".to_string() });
+///
+/// // Retrieving the error code and description
+/// assert_eq!(error.code(), 100);
+/// assert_eq!(error.description(), "100 - Bad Request: The request could not be understood or was missing required parameters.");
+/// ```
+///
+/// The `ProtocolError` enum includes a range of error codes:
+/// - **Client Errors (100-115)**: Errors that indicate issues on the client side.
+/// - **Server Errors (120-128)**: Errors that indicate issues on the server side.
+///
+/// Each variant of `ProtocolError` has a specific code and message associated with it, which helps in
+/// diagnosing and responding to different error conditions in the protocol.
 pub mod error;
 
 use std::time::SystemTime;
 
 use interface::{
-     MessagePublish,
-     MessageCategory,
-     MessagePriority,
-     ContentType,
-     MTPManagerAction,
-     MTPHeaderUnit,
-     MTPStatusCode,
-     MessageTransferProtocolResponse
+    ContentType,
+    MTPHeaderUnit,
+    MTPManagerAction, 
+    MTPRequestType, 
+    MTPStatusCode, 
+    MessageCategory,
+    MessagePriority, 
+    MessagePublish, 
+    MessageTransferProtocolPayload, 
+    MessageTransferProtocolResponse
 };
 
 /// [`MTPResponse`] represents the response returned from operations performed in the message transfer protocol.
@@ -121,6 +153,82 @@ impl MessageTransferProtocolResponse for MTPResponse {
      }
  }
  
+/// [`MTPPayload`] type represents the payload sent from the client to the server
+/// Contains all the information pertaining to request action and source information
+/// passed in the header
+struct MTPPayload{
+
+    /// Headers from the client 
+    /// 
+    /// # See Also
+    ///
+    /// - [`MTPHeaders`] for headers containing request info and [MTPStorage]
+    headers:MTPHeaders,
+
+    /// Body of the payload (optional) only if the request type is [MTPRequestType::Publish] to publish the message
+    /// 
+    /// # See also
+    /// - [`MTPMessage`] for the messsage type 
+    message:Option<MTPMessage>,
+
+    /// [MTPRequestType] of the request. 
+    /// 
+    /// # See also
+    /// - [`MTPRequestType`] for the type
+    request:MTPRequestType,
+}
+
+impl MTPPayload {
+    fn construct(headers:MTPHeaders, message:Option<MTPMessage>, request:MTPRequestType)->Self{
+        Self{
+            headers,
+            message,
+            request
+        }
+    }
+
+    fn subscribe(headers:MTPHeaders, message:Option<MTPMessage>)->Self{
+        Self::construct(headers, message, MTPRequestType::Subscribe)
+    }
+
+    fn unsubscribe(headers:MTPHeaders, message:Option<MTPMessage>)->Self{
+        Self::construct(headers, message, MTPRequestType::Unsubscribe)
+    }
+
+    fn publish(headers:MTPHeaders, message:Option<MTPMessage>)->Self{
+        Self::construct(headers, message, MTPRequestType::Publish)
+    }
+
+    fn pull(headers:MTPHeaders, message:Option<MTPMessage>)->Self{
+        Self::construct(headers, message, MTPRequestType::Pull)
+    }
+
+    fn ping(headers:MTPHeaders, message:Option<MTPMessage>)->Self{
+        Self::construct(headers, message, MTPRequestType::Ping)
+    }
+
+    fn manage(headers:MTPHeaders, message:Option<MTPMessage>)->Self{
+        Self::construct(headers, message, MTPRequestType::Manage)
+    }
+}
+
+impl MessageTransferProtocolPayload for MTPPayload{
+    fn get_headers(&self) -> Option<MTPHeaders> {
+        Some(self.headers.clone())
+    }
+
+    fn get_message(&self) -> Option<MTPMessage> {
+        self.message.clone()
+    }
+
+    fn get_request(&self) -> MTPRequestType {
+        self.request.clone()
+    }
+
+    fn get_timestamp(&self) -> Option<SystemTime> {
+        self.headers.timestamp.clone()
+    }
+}
 
 
 /// `MTPManagerActions` represents a collection of management actions that can be performed.
@@ -310,7 +418,7 @@ pub struct MTPManagerActions {
 pub struct MTPHeaders {
      headers: Vec<MTPHeaderUnit>,
      local: MTPStorage,
-     timestamp: SystemTime,
+     timestamp: Option<SystemTime>,
  }
 
  
@@ -359,6 +467,7 @@ impl Clone for MTPHeaderUnit {
                Self::Source { source } => Self::Source { source: source.clone() },
                Self::Message { id, timestamp, priority, category, content_type } => Self::Message { id: id.clone(), timestamp: timestamp.clone(), priority: priority.clone(), category: category.clone(), content_type: content_type.clone() },
                Self::MessagePublish { queue, to } => Self::MessagePublish { queue: queue.clone(), to: to.clone() },
+               Self::QueueCreation { name, access } => Self::QueueCreation { name: name.clone(), access: access.clone() }
           }
     }
 }
@@ -367,16 +476,16 @@ impl Clone for MTPHeaderUnit {
 impl Clone for MTPManagerAction{
      fn clone(&self) -> Self {
           match self {
-               Self::Rename => Self::Rename,
-               Self::Authorize => Self::Authorize,
+               Self::Rename(s) => Self::Rename(s.clone()),
+               Self::Authorize(s) => Self::Authorize(s.clone()),
                Self::Reject => Self::Reject,
-               Self::Dispose => Self::Dispose,
-               Self::AccessorModify => Self::AccessorModify,
+               Self::Dispose(s) => Self::Dispose(s.clone()),
+               Self::AccessorModify(s) => Self::AccessorModify(s.clone()),
           }
     }
 }
 
-/// CLone implementation for [MTPStatusCode]
+/// Clone implementation for [MTPStatusCode]
 impl Clone for MTPStatusCode{
      fn clone(&self) -> Self {
          match self {
@@ -386,3 +495,10 @@ impl Clone for MTPStatusCode{
      }
  }
  
+
+/// Clone implementation for [MTPMessage]
+impl Clone for MTPMessage{
+    fn clone(&self) -> Self {
+        Self { content_type: self.content_type.clone(), priority: self.priority.clone(), category: self.category.clone(), publish: self.publish.clone(), message: self.message.clone() }
+    }
+}
