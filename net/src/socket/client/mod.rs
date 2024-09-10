@@ -220,5 +220,5 @@ impl ClientSocket {
               Ok(parsed_data) =>Ok(parsed_data) ,
               Err(e) => Err(ClientSocketError::ProtocolParseError { source: e }),
           }
-      }
+     }
 }
