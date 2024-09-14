@@ -3,11 +3,9 @@ pub mod data;
 
 use std::{net::Ipv4Addr, time::Duration};
 
-use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream, time};
+use tokio::{io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader}, net::TcpStream, time};
 
 use error::ClientSocketError;
-use crate::protocol::interface::MessageTransferProtocol;
-
 use super::data::ProtocolParser as ProtocolParse;
 
 /// A simple socket for wrapping over async standard tcp stream
@@ -180,6 +178,7 @@ impl ClientSocket {
      }
 
      /// Sends a framed message with a length prefix.
+     /// Sends the frame implemented on [ProtocolParse]
      ///
      /// # Arguments
      ///
@@ -202,11 +201,13 @@ impl ClientSocket {
      }
 
      /// Receives a framed message with a length prefix.
+     /// Receives the frame implemented on [ProtocolParse]
+     /// Protocol standard tx. of data through socket
      ///
      /// # Returns
      ///
      /// The message data received after the length prefix.
-     pub async fn recv_frame<T: MessageTransferProtocol + Clone + ProtocolParse>(
+     pub async fn recv_frame<T: Clone + ProtocolParse>(
           &mut self,
           protocol: &mut T
       ) -> Result<T, ClientSocketError> {
@@ -217,8 +218,146 @@ impl ClientSocket {
           
           // Parsing protocol data
           match protocol.from_raw(bytes) {
-              Ok(parsed_data) =>Ok(parsed_data) ,
+
+              Ok(parsed_data) =>{
+                    protocol.clone_from(&parsed_data);
+                    Ok(parsed_data) 
+               },
               Err(e) => Err(ClientSocketError::ProtocolParseError { source: e }),
           }
+     }
+
+     /// Flushes the stream.
+     ///
+     /// # Returns
+     ///
+     /// A `Result` that returns `Ok(())` if the flush is successful, or `ClientSocketError` if an error occurs.
+     ///
+     /// # Example
+     /// 
+     /// ```rust
+     /// socket.flush().await.unwrap();
+     /// ```
+     pub async fn flush(&mut self) -> Result<(), ClientSocketError> {
+          self.stream.flush().await.map_err(|e| ClientSocketError::IoError { source: e })
+     }
+
+     /// Splits the TCP stream into a readable half and a writable half.
+     ///
+     /// # Returns
+     ///
+     /// A tuple containing the read half and write half of the TCP stream.
+     ///
+     /// # Example
+     /// 
+     /// ```rust
+     /// let (read_half, write_half) = socket.split();
+     /// ```
+     pub fn split(self) -> (tokio::net::tcp::OwnedReadHalf, tokio::net::tcp::OwnedWriteHalf) {
+          self.stream.into_split()
+     }
+
+     /// Gets the local address of the TCP stream.
+     ///
+     /// # Returns
+     ///
+     /// A `Result` that returns the local `SocketAddr` of the stream, or `ClientSocketError` if an error occurs.
+     ///
+     /// # Example
+     /// 
+     /// ```rust
+     /// let local_addr = socket.get_local_addr().unwrap();
+     /// ```
+     pub fn get_local_addr(&self) -> Result<std::net::SocketAddr, ClientSocketError> {
+          self.stream.local_addr().map_err(|e| ClientSocketError::IoError { source: e })
+     }
+
+     /// Gets the peer address of the TCP stream.
+     ///
+     /// # Returns
+     ///
+     /// A `Result` that returns the peer's `SocketAddr`, or `ClientSocketError` if an error occurs.
+     ///
+     /// # Example
+     /// 
+     /// ```rust
+     /// let peer_addr = socket.get_peer_addr().unwrap();
+     /// ```
+     pub fn get_peer_addr(&self) -> Result<std::net::SocketAddr, ClientSocketError> {
+          self.stream.peer_addr().map_err(|e| ClientSocketError::IoError { source: e })
+     }
+
+     /// Reads data from the stream until a specified delimiter is found.
+     ///
+     /// # Arguments
+     ///
+     /// * `delimiter` - A byte representing the delimiter.
+     ///
+     /// # Returns
+     ///
+     /// A `Result` containing the bytes read, or a `ClientSocketError` if an error occurs.
+     ///
+     /// # Example
+     /// 
+     /// ```rust
+     /// let data = socket.read_until(b'\n').await.unwrap();
+     /// ```
+     pub async fn read_until(&mut self, delimiter: u8) -> Result<Vec<u8>, ClientSocketError> {
+          // Wrap the TcpStream in a BufReader to use read_until
+          let mut reader = BufReader::new(&mut self.stream);
+          let mut buffer = Vec::new();
+          reader.read_until(delimiter, &mut buffer).await.map_err(|e| ClientSocketError::IoError { source: e })?;
+          Ok(buffer)
+     }
+
+     /// Reads all data from the stream until the connection is closed.
+     ///
+     /// # Returns
+     ///
+     /// A `Result` containing the bytes read, or a `ClientSocketError` if an error occurs.
+     ///
+     /// # Example
+     /// 
+     /// ```rust
+     /// let data = socket.read_to_end().await.unwrap();
+     /// ```
+     pub async fn read_to_end(&mut self) -> Result<Vec<u8>, ClientSocketError> {
+          let mut buffer = Vec::new();
+          self.stream.read_to_end(&mut buffer).await.map_err(|e| ClientSocketError::IoError { source: e })?;
+          Ok(buffer)
+     }
+
+     /// Checks if the socket is still connected by attempting a non-blocking peek operation.
+     ///
+     /// # Returns
+     ///
+     /// A `Result` that returns `Ok(true)` if the connection is still active, or `Ok(false)` if it is not.
+     ///
+     /// # Example
+     /// 
+     /// ```rust
+     /// let is_connected = socket.is_connected().await.unwrap();
+     /// ```
+     pub async fn is_connected(&mut self) -> Result<bool, ClientSocketError> {
+          let mut buf = [0u8; 1];
+          match time::timeout(Duration::from_millis(500), self.stream.peek(&mut buf)).await {
+          Ok(Ok(_)) => Ok(true),
+          Ok(Err(_)) | Err(_) => Ok(false),
+          }
+     }
+
+     /// Gracefully shuts down the TCP connection.
+     ///
+     /// # Returns
+     ///
+     /// A `Result` that returns `Ok(())` if the shutdown is successful, or `ClientSocketError` if an error occurs.
+     ///
+     /// # Example
+     /// 
+     /// ```rust
+     /// socket.shutdown().await.unwrap();
+     /// ```
+     pub async fn shutdown(&mut self) -> Result<(), ClientSocketError> {
+          self.stream.shutdown().await.map_err(|e| ClientSocketError::IoError { source: e })
      }
 }
