@@ -149,9 +149,9 @@ impl ServerSocket{
           let tcp_listener = TcpListener::bind((localhost, port)).await?; // ServerSocketError::IoError{source:<Error>}
      
           Ok(ServerSocket {
-          port,
-          host: localhost,
-          tcp_listener
+               port,
+               host: localhost,
+               tcp_listener
           })
      }
  
@@ -304,4 +304,235 @@ impl ServerSocket{
           return self.read_incoming(Type::Utf8).await;
      }
  
+
+     /// Accepts a new TCP connection and reads data from it according to the specified type.
+     ///
+     /// This method listens for a new incoming connection, accepts it, and then reads data from the
+     /// accepted socket. The data is processed according to the specified [Type].
+     ///
+     /// # Parameters
+     ///
+     /// - `data_type`:
+     ///   - A [Type] enum that specifies how to interpret the data read from the socket. It can be:
+     ///     - `Type::Bytes`: Treats the data as raw bytes.
+     ///     - `Type::Utf16`: Treats the data as UTF-16 encoded text.
+     ///     - `Type::Utf8`: Treats the data as UTF-8 encoded text.
+     ///
+     /// # Returns
+     ///
+     /// - `Ok(SocketData)`:
+     ///   - On success, returns a `SocketData` instance containing the parsed data and the address of the
+     ///     accepted socket.
+     /// - `Err(ServerSocketError)`:
+     ///   - On failure, returns a `ServerSocketError` indicating issues such as connection acceptance
+     ///     failures or data reading errors.
+     ///
+     /// # Example
+     ///
+     /// ```rust
+     /// use your_crate::ServerSocket;
+     /// use your_crate::data::Type;
+     ///
+     /// #[tokio::main]
+     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+     ///     let server = ServerSocket::bind(8080).await?;
+     ///     let socket_data = server.accept_and_read(Type::Utf8).await?;
+     ///     println!("Received data: {:?}", socket_data);
+     ///     Ok(())
+     /// }
+     /// ```
+     /// 
+     /// # Errors
+     /// 
+     /// This function may return an error if:
+     /// - There is a failure in accepting the connection.
+     /// - There are issues with reading from the socket.
+     /// - Data parsing fails based on the specified `Type`.
+     ///
+     /// # See Also
+     ///
+     /// - [`accept`], [`read_incoming`] for more details on accepting connections and reading data.
+     pub async fn accept_and_read(&self, data_type: Type) -> Result<SocketData, ServerSocketError> {
+          let (mut stream, addr) = self.tcp_listener.accept().await?;
+          let mut buf = Vec::new();
+          stream.read_to_end(&mut buf).await?;
+          match data_type {
+          Type::Bytes => Ok(SocketData::new(addr, Data::Bytes(buf))),
+          Type::Utf16 => {
+               let utf16_string = Data::to_utf16_string(&buf, Endian::Big).await;
+               Ok(SocketData::new(addr, Data::Utf16(utf16_string)))
+          },
+          Type::Utf8 => {
+               let utf8_string = String::from_utf8_lossy(&buf).to_string();
+               Ok(SocketData::new(addr, Data::Utf8(utf8_string)))
+          }
+          }
+     }
+
+     /// Shuts down the TCP listener, stopping it from accepting new connections.
+     ///
+     /// # Returns
+     ///
+     /// - `Result<(), ServerSocketError>`:
+     ///   - `Ok(())` on successful shutdown.
+     ///   - `Err(ServerSocketError)` on failure to shutdown, which might include IO errors.
+     ///
+     /// # Example
+     ///
+     /// ```rust
+     /// use your_crate::ServerSocket;
+     ///
+     /// #[tokio::main]
+     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+     ///     let mut server = ServerSocket::bind(8080).await?;
+     ///     // Perform some operations
+     ///     server.shutdown().await?;
+     ///     Ok(())
+     /// }
+     /// ```
+     ///
+     /// # Errors
+     ///
+     /// This function may return an error if:
+     /// - There are issues with closing the listener.
+     ///
+     /// # Notes
+     ///
+     /// - Ensure that all connections are properly closed before shutting down the server.
+     // pub async fn shutdown(&mut self) -> Result<(), ServerSocketError> {
+     //      // Closing the TcpListener isn't directly supported in Tokio; however, you can drop it
+     //      // and ensure no new connections are accepted.
+     //      self.tcp_listener.
+     //      Ok(())
+     // }
+
+     /// Gets the address and port on which the server is currently listening.
+     ///
+     /// # Returns
+     ///
+     /// - `SocketAddr`:
+     ///   - The address and port on which the server is bound.
+     ///
+     /// # Example
+     ///
+     /// ```rust
+     /// use your_crate::ServerSocket;
+     ///
+     /// #[tokio::main]
+     /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+     ///     let server = ServerSocket::bind(8080).await?;
+     ///     let addr = server.get_listening_address();
+     ///     println!("Server is listening on {}", addr);
+     ///     Ok(())
+     /// }
+     /// ```
+     pub fn get_listening_address(&self) -> SocketAddr {
+          SocketAddr::new(std::net::IpAddr::V4(self.host), self.port)
+     }
+}
+
+
+/// An iterator over new TCP connections accepted by a `ServerSocket`.
+///
+/// This iterator repeatedly accepts new connections from the associated `TcpListener`.
+/// It can be used to process incoming connections asynchronously.
+///
+/// # Fields
+///
+/// - `server_socket`:
+///   - A reference to the `ServerSocket` instance from which new connections will be accepted.
+///
+/// # Examples
+///
+/// ```rust
+/// use your_crate::ServerSocket;
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let server = ServerSocket::bind(8080).await?;
+///
+///     let mut conn_iter = ConnectionIterator::new(&server);
+///
+///     while let Some(result) = conn_iter.next().await {
+///         match result {
+///             Ok((stream, addr)) => {
+///                 println!("Accepted connection from {}", addr);
+///                 // Handle the stream here
+///             }
+///             Err(e) => {
+///                 eprintln!("Failed to accept connection: {:?}", e);
+///             }
+///         }
+///     }
+///
+///     Ok(())
+/// }
+/// ```
+pub struct ConnectionIterator<'a> {
+     server_socket: &'a ServerSocket,
+}
+ 
+impl<'a> ConnectionIterator<'a> {
+     /// Creates a new `ConnectionIterator` for the given `ServerSocket`.
+     ///
+     /// # Parameters
+     ///
+     /// - `server_socket`:
+     ///   - A reference to the `ServerSocket` instance from which new connections will be accepted.
+     ///
+     /// # Returns
+     ///
+     /// - `Self`:
+     ///   - An instance of `ConnectionIterator` initialized with the provided `ServerSocket`.
+     pub fn new(server_socket: &'a ServerSocket) -> Self {
+         ConnectionIterator { server_socket }
+     }
+}
+ 
+impl<'a> Iterator for ConnectionIterator<'a> {
+     type Item = Result<(TcpStream, SocketAddr), ServerSocketError>;
+ 
+     /// Accepts the next incoming connection from the `ServerSocket`.
+     ///
+     /// This method asynchronously waits for a new connection on the TCP listener. 
+     /// It returns a `Result` containing either the accepted `TcpStream` and the `SocketAddr`
+     /// of the connecting peer or an error if the operation fails.
+     ///
+     /// # Returns
+     ///
+     /// - `Ok((TcpStream, SocketAddr))`:
+     ///   - On success, returns a tuple containing the `TcpStream` for the accepted connection
+     ///     and the `SocketAddr` of the remote peer.
+     /// - `Err(ServerSocketError)`:
+     ///   - On failure, returns a `ServerSocketError` indicating why the connection could not be accepted.
+     ///
+     /// # Example
+     ///
+     /// ```rust
+     /// let mut conn_iter = ConnectionIterator::new(&server);
+     ///
+     /// while let Some(result) = conn_iter.next().await {
+     ///     match result {
+     ///         Ok((stream, addr)) => {
+     ///             println!("Accepted connection from {}", addr);
+     ///             // Handle the stream here
+     ///         }
+     ///         Err(e) => {
+     ///             eprintln!("Failed to accept connection: {:?}", e);
+     ///         }
+     ///     }
+     /// }
+     /// ```
+     fn next(&mut self) -> Option<Self::Item> {
+         let server_socket = self.server_socket;
+         let future = async {
+             let (stream, addr) = server_socket.tcp_listener.accept().await?;
+             Ok((stream, addr))
+         };
+ 
+         match tokio::runtime::Handle::current().block_on(future) {
+             Ok(result) => Some(Ok(result)),
+             Err(e) => Some(Err(e)),
+         }
+     }
 }
