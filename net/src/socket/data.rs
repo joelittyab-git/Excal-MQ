@@ -1,3 +1,5 @@
+use crate::protocol::{error::ProtocolError, interface::{MessageTransferProtocol, MessageTransferProtocolPayload}};
+
 /// Represents different types of data with their associated values.
 ///
 /// This enum is used to represent data in various formats, including
@@ -192,4 +194,9 @@ impl Data{
 
           String::from_utf16_lossy(&utf16_encoded)
      }
+}
+
+pub trait ProtocolParser {
+     fn from_raw(&self, bytes:Vec<u8>)->Result<Self, ProtocolError> where Self: Sized;
+     fn to_bytes(&self)->Result<Vec<u8>, ProtocolError>;
 }
